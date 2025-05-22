@@ -1,0 +1,100 @@
+{
+    "name": "Dev Onboarding: Environment Setup",
+    "tag": "dev-onboarding-env-setup",
+    "description": "This workflow automates the creation of a GitHub repository, infrastructure provisioning with Terraform, and generates a PR for setting up an RDS instance.",
+    "isDraft": false,
+    "filter": {
+        "type": "GLOBAL"
+    },
+    "runResponseTemplate": null,
+    "actions": [
+        {
+            "name": "Transform User Info",
+            "slug": "transform-user-info",
+            "schema": {
+                "expression": ".context.initiatedBy.name + \"-repo\"",
+                "type": "JQ"
+            },
+            "outgoingActions": [
+                "scaffold-hello-org"
+            ],
+            "isRootAction": true
+        },
+        {
+            "name": "Scaffold Hello Org Repo",
+            "slug": "scaffold-hello-org",
+            "schema": {
+                "scaffolderTemplateId": "st363f187d3e1a826e",
+                "createNewRepository": true,
+                "createService": null,
+                "inputOverrides": [
+                    {
+                        "inputKey": "repo_name",
+                        "outputVariable": "actions.transform-user-info.outputs.result",
+                        "editable": false,
+                        "type": "VALUE"
+                    }
+                ],
+                "type": "SCAFFOLDER"
+            },
+            "outgoingActions": [
+                "trigger-workflow"
+            ],
+            "isRootAction": false
+        },
+        {
+            "name": "Terraform Infrastructure Provisioning",
+            "slug": "trigger-workflow",
+            "schema": {
+                "inputs": {
+                    "ref": "main",
+                    "repo": "cortex-workshops/terraform",
+                    "inputs": "{\"user\": \"{{context.initiatedBy.name}}\"}",
+                    "workflow_id": ".github/workflows/main.yaml"
+                },
+                "integrationAlias": "cortex",
+                "actionIdentifier": "github.createWorkflowDispatchEvent",
+                "type": "ADVANCED_HTTP_REQUEST"
+            },
+            "outgoingActions": [
+                "scaffold-rds-terraform"
+            ],
+            "isRootAction": false
+        },
+        {
+            "name": "Open PR with RDS terraform",
+            "slug": "scaffold-rds-terraform",
+            "schema": {
+                "scaffolderTemplateId": "st363f198d56473124",
+                "createNewRepository": false,
+                "createService": null,
+                "inputOverrides": [
+                    {
+                        "inputKey": "publisherRepoFullName",
+                        "outputVariable": "actions.scaffold-hello-org.outputs.response.gitURL",
+                        "editable": false,
+                        "type": "VALUE"
+                    }
+                ],
+                "type": "SCAFFOLDER"
+            },
+            "outgoingActions": [
+                "notify-developer"
+            ],
+            "isRootAction": false
+        },
+        {
+            "name": "Notify Developer",
+            "slug": "notify-developer",
+            "schema": {
+                "channel": "all-es-testing",
+                "message": "Hi, {{context.initiatedBy.name}}! Your new test environment is ready to go!",
+                "type": "SLACK"
+            },
+            "outgoingActions": [],
+            "isRootAction": false
+        }
+    ],
+    "runRestrictionPolicies": [],
+    "iconTag": "Keyboard"
+}
