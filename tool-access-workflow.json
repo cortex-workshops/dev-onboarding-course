@@ -1,0 +1,100 @@
+{
+    "name": "Dev Onboarding: User Access",
+    "tag": "dev-onboarding-user-access",
+    "description": "Automatically sets up new developers with access to GitHub, PagerDuty, and Jira.",
+    "isDraft": false,
+    "filter": {
+        "type": "GLOBAL"
+    },
+    "runResponseTemplate": null,
+    "actions": [
+        {
+            "name": "Get GH Username",
+            "slug": "get-gh-username",
+            "schema": {
+                "inputs": [
+                    {
+                        "name": "GitHub Username",
+                        "description": "Enter your personal GitHub username.",
+                        "key": "github-username",
+                        "required": false,
+                        "defaultValue": null,
+                        "placeholder": null,
+                        "validationRegex": "^[^\\s]+$",
+                        "type": "INPUT_FIELD"
+                    }
+                ],
+                "inputOverrides": [],
+                "type": "USER_INPUT"
+            },
+            "outgoingActions": [
+                "add-user-to-org"
+            ],
+            "isRootAction": true
+        },
+        {
+            "name": "Add user to GH org",
+            "slug": "add-user-to-org",
+            "schema": {
+                "inputs": {
+                    "org": "cortexapps",
+                    "role": "member",
+                    "username": "actions.get-gh-username.outputs.github-username"
+                },
+                "integrationAlias": "cortex",
+                "actionIdentifier": "github.addUserToOrg",
+                "type": "ADVANCED_HTTP_REQUEST"
+            },
+            "outgoingActions": [
+                "add-user-to-pd"
+            ],
+            "isRootAction": false
+        },
+        {
+            "name": "Add user to PagerDuty",
+            "slug": "add-user-to-pd",
+            "schema": {
+                "headers": {
+                    "Accept": "application/vnd.pagerduty+json;version=2",
+                    "Authorization": "Bearer {{context.secrets.pd_token}}"
+                },
+                "httpMethod": "POST",
+                "payload": "{\n  \"user\": {\n    \"type\": \"user\",\n    \"name\": \"{{context.initiatedBy.name}}\",\n    \"email\": \"{{context.initiatedBy.email}}\"\n  }\n}",
+                "url": "https://api.pagerduty.com/users",
+                "type": "HTTP_REQUEST"
+            },
+            "outgoingActions": [
+                "add-user-to-jira"
+            ],
+            "isRootAction": false
+        },
+        {
+            "name": "Add user to Jira",
+            "slug": "add-user-to-jira",
+            "schema": {
+                "headers": {},
+                "httpMethod": "POST",
+                "payload": "{\n  \"emailAddress\": \"{{context.initiatedBy.email}}\",\n  \"displayName\": \"{{context.initiatedBy.name}}\"\n}`",
+                "url": "https://cortex.atlassian.net/rest/api/3/user",
+                "type": "HTTP_REQUEST"
+            },
+            "outgoingActions": [
+                "send-message"
+            ],
+            "isRootAction": false
+        },
+        {
+            "name": "Send message",
+            "slug": "send-message",
+            "schema": {
+                "channel": "social",
+                "message": "{{context.initiatedBy.name}} has been added to GitHub, PagerDuty, and Jira.",
+                "type": "SLACK"
+            },
+            "outgoingActions": [],
+            "isRootAction": false
+        }
+    ],
+    "runRestrictionPolicies": [],
+    "iconTag": "AndroidLogo"
+}
